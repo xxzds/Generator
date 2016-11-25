@@ -1,0 +1,133 @@
+
+<#assign className = table.className>
+<#assign classNameLower =
+className?uncap_first> 
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="${basepackage}.dao.intf.${className}Dao">
+
+	<resultMap id="BaseResultMap" type="${basepackage}.model.${className}">
+		<#list table.columns as column>
+			<#if column.isDateTimeColumn>
+			<result column="${column.sqlName}" property="${column.columnNameLower}" jdbcType="TIMESTAMP" />
+			<#elseif column.isClobColumn>
+			<result column="${column.sqlName}" property="${column.columnNameLower}" jdbcType="CLOB" />
+			<#elseif column.isNumberColumn>
+			<result column="${column.sqlName}" property="${column.columnNameLower}" jdbcType="DECIMAL" />
+			<#else>
+			<result column="${column.sqlName}" property="${column.columnNameLower}" jdbcType="VARCHAR" />
+			</#if>
+		</#list>
+	</resultMap>
+
+	<sql id="Base_Column_List">
+		<where>
+			<#list table.columns as column>  
+				${column.sqlName},
+			</#list>
+		</where>
+	</sql>
+
+	<sql id="Conditions_${classNameLower}">
+		<where>
+			<#list table.columns as column>
+			<if test="${column.columnNameLower} != null">
+				and a.${column.sqlName} = ${r"#{"}${column.columnNameLower}}
+			</if>
+			</#list>
+		</where>
+	</sql>
+	
+	<select id="findById" resultMap="BaseResultMap" parameterType="java.lang.String">
+		select 
+		<include refid="Base_Column_List" />
+		from ${table.sqlName}
+		<where>
+			<#list table.columns as column>
+			<#if column.pk>
+			  and ${column.sqlName}=${r"#{"}${column.columnNameLower}}
+			</#if>
+			</#list>
+		</where>
+	</select>
+
+	<delete id="deleteById" parameterType="java.lang.String">
+		delete from ${table.sqlName}
+		<where>
+			<#list table.columns as column>
+			<#if column.pk>
+			  and ${column.sqlName}=${r"#{"}${column.columnNameLower}}
+			</#if>
+			</#list>
+		</where>
+	</delete>
+
+	<insert id="insert" parameterType="${basepackage}.model.${className}">
+		insert into ${table.sqlName}
+		<trim prefix="(" suffix=")" suffixOverrides=",">
+			<#list table.columns
+			as column>
+			${column.sqlName}
+			</#list>
+		</trim>
+		<trim prefix="values (" suffix=")" suffixOverrides=",">
+			<#list
+			table.columns as column>
+			${r"#{"}${column.columnNameLower}},
+			</#list>
+		</trim>
+	</insert>
+
+	<insert id="insertSelective" parameterType="${basepackage}.model.${className}">
+		insert into ${table.sqlName}
+		<trim prefix="(" suffix=")" suffixOverrides=",">
+			<#list table.columns as column>
+			<if test="${column.columnNameLower} != null">${column.sqlName},</if>
+			</#list>
+		</trim>
+		<trim prefix="values (" suffix=")" suffixOverrides=",">
+			<#list table.columns as column>
+			<if test="${column.columnNameLower} != null">${r"#{"}${column.columnNameLower}},</if>
+			</#list>
+		</trim>
+	</insert>
+
+	<update id="updateById" parameterType="${basepackage}.model.${className}">
+		update ${table.sqlName}
+		<set>
+			<#list table.columns as column>
+			<#if !column.pk>
+			${column.sqlName}=${r"#{"}${column.columnNameLower}},
+			</#if>
+			</#list>
+		</set>
+		<where>
+			<#list table.columns as column>
+			<#if column.pk>
+			  and ${column.sqlName}=${r"#{"}${column.columnNameLower}}
+			</#if>
+			</#list>
+		</where>
+	</update>
+
+	
+
+	<update id="updateByIdSelective" parameterType="${basepackage}.model.${className}">
+		update ${table.sqlName}
+		<set>
+			<#list table.columns as column>
+			<#if !column.pk>
+			<if test="${column.columnNameLower} != null">${column.sqlName}=${r"#{"}${column.columnNameLower}},
+			</if>
+			</#if>
+			</#list>
+		</set>
+		<where>
+			<#list table.columns as column>
+			<#if column.pk>
+			  and ${column.sqlName}=${r"#{"}${column.columnNameLower}}
+			</#if>
+			</#list>
+		</where>
+	</update>
+</mapper>

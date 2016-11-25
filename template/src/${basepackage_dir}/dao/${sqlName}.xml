@@ -1,0 +1,342 @@
+
+<#assign className = table.className>
+<#assign classNameLower = className?uncap_first> 
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="${basepackage}.dao.${className}Dao">
+
+	<resultMap id="BaseResultMap" type="${basepackage}.model.${className}">
+		<#list table.columns as column>
+			<#if column.isDateTimeColumn>
+			<result column="${column.sqlName}" property="${column.firstLetterLowerOtherUpperCase}" jdbcType="TIMESTAMP" />
+			<#elseif column.isClobColumn>
+			<result column="${column.sqlName}" property="${column.cfirstLetterLowerOtherUpperCase}" jdbcType="CLOB" />
+			<#elseif column.isNumberColumn>
+			<result column="${column.sqlName}" property="${column.firstLetterLowerOtherUpperCase}" jdbcType="DECIMAL" />
+			<#else>
+			<#if column.pk>
+			<id column="${column.sqlName}" property="${column.firstLetterLowerOtherUpperCase}" jdbcType="VARCHAR" />
+			<#else>
+			<result column="${column.sqlName}" property="${column.firstLetterLowerOtherUpperCase}" jdbcType="VARCHAR" />
+			</#if>			
+			</#if>
+		</#list>
+	</resultMap>
+
+	<sql id="Base_Column_List">
+		<#list table.columns as column>  				
+			<#if table.columns?size==column_index+1>
+			${column.sqlName}
+			<#else>
+			${column.sqlName},
+			</#if>
+		</#list>
+	</sql>
+
+	<sql id="conditions_${classNameLower}">
+		<where>
+			<#list table.columns as column>
+			<if test="${column.firstLetterLowerOtherUpperCase} != null">
+				and ${column.sqlName} = ${r"#{"}${column.firstLetterLowerOtherUpperCase}}
+			</if>
+			</#list>
+		</where>
+	</sql>
+	
+	<select id="findById" resultMap="BaseResultMap" parameterType="java.lang.String">
+		select 
+		<include refid="Base_Column_List" />
+		from ${table.sqlName}
+		<where>
+			<#list table.columns as column>
+			<#if column.pk>
+			  and ${column.sqlName}=${r"#{"}${column.firstLetterLowerOtherUpperCase}}
+			</#if>
+			</#list>
+		</where>
+	</select>
+	
+	<select id="find" resultMap="BaseResultMap" parameterType="${basepackage}.model.${className}">
+		select 
+		<include refid="Base_Column_List" />
+		from ${table.sqlName}
+		<include refid="conditions_${classNameLower}" />
+	</select>
+
+	<delete id="deleteById" parameterType="java.lang.String">
+		delete from ${table.sqlName}
+		<where>
+			<#list table.columns as column>
+			<#if column.pk>
+			  and ${column.sqlName}=${r"#{"}${column.firstLetterLowerOtherUpperCase}}
+			</#if>
+			</#list>
+		</where>
+	</delete>
+	
+	<delete id="batchDeleteByIds" parameterType="java.lang.String">
+		delete from ${table.sqlName}
+		<where>
+			<#list table.columns as column>
+			<#if column.pk>
+			  and ${column.sqlName} in 
+			  <foreach collection="array" item="id" open="(" separator="," close=")">
+				${r"#"}{id}
+			</foreach>
+			</#if>
+			</#list>			
+		</where>
+	</delete>
+
+	<insert id="insert" parameterType="${basepackage}.model.${className}">
+		insert into ${table.sqlName}
+		<trim prefix="(" suffix=")" suffixOverrides=",">
+			<#list table.columns
+			as column>
+			${column.sqlName},
+			</#list>
+		</trim>
+		<trim prefix="values (" suffix=")" suffixOverrides=",">
+			<#list
+			table.columns as column>
+			${r"#{"}${column.firstLetterLowerOtherUpperCase}},
+			</#list>
+		</trim>
+	</insert>
+
+	<insert id="insertSelective" parameterType="${basepackage}.model.${className}">
+		insert into ${table.sqlName}
+		<trim prefix="(" suffix=")" suffixOverrides=",">
+			<#list table.columns as column>
+			<if test="${column.firstLetterLowerOtherUpperCase} != null">${column.sqlName},</if>
+			</#list>
+		</trim>
+		<trim prefix="values (" suffix=")" suffixOverrides=",">
+			<#list table.columns as column>
+			<if test="${column.firstLetterLowerOtherUpperCase} != null">${r"#{"}${column.firstLetterLowerOtherUpperCase}},</if>
+			</#list>
+		</trim>
+	</insert>
+
+	<update id="updateById" parameterType="${basepackage}.model.${className}">
+		update ${table.sqlName}
+		<set>
+			<#list table.columns as column>
+			<#if !column.pk>
+			${column.sqlName}=${r"#{"}${column.firstLetterLowerOtherUpperCase}},
+			</#if>
+			</#list>
+		</set>
+		<where>
+			<#list table.columns as column>
+			<#if column.pk>
+			  and ${column.sqlName}=${r"#{"}${column.firstLetterLowerOtherUpperCase}}
+			</#if>
+			</#list>
+		</where>
+	</update>
+
+	
+
+	<update id="updateByIdSelective" parameterType="${basepackage}.model.${className}">
+		update ${table.sqlName}
+		<set>
+			<#list table.columns as column>
+			<#if !column.pk>
+			<if test="${column.firstLetterLowerOtherUpperCase} != null">${column.sqlName}=${r"#{"}${column.firstLetterLowerOtherUpperCase}},</if>
+			</#if>
+			</#list>
+		</set>
+		<where>
+			<#list table.columns as column>
+			<#if column.pk>
+			  and ${column.sqlName}=${r"#{"}${column.firstLetterLowerOtherUpperCase}}
+			</#if>
+			</#list>
+		</where>
+	</update>
+	
+<!-- 分页、条件查询、排序 -->
+	<sql id="or_filters">
+		<foreach collection="searchFilter.orFilters" item="orFilter" open="(" separator="or" close=")">
+			<choose>
+				<when test='orFilter.operator.info == "前缀模糊匹配"'>
+					${r"$"}{orFilter.searchProperty} like concat('%', ${r"#"}{orFilter.value})
+				</when>
+				<when test='orFilter.operator.info == "前缀模糊不匹配"'>
+					${r"$"}{orFilter.searchProperty} not like concat('%', ${r"#"}{orFilter.value})
+				</when>
+				<when test='orFilter.operator.info == "后缀模糊匹配"'>
+					${r"$"}{orFilter.searchProperty} like concat(${r"#"}{orFilter.value}, '%')
+				</when>
+				<when test='orFilter.operator.info == "后缀模糊不匹配"'>
+					${r"$"}{orFilter.searchProperty} not like concat(${r"#"}{orFilter.value}, '%')
+				</when>
+				<when test='orFilter.operator.info == "模糊匹配"'>
+					${r"$"}{orFilter.searchProperty} like concat('%', ${r"#"}{orFilter.value}, '%')
+				</when>
+				<when test='orFilter.operator.info == "不匹配"'>
+					${r"$"}{orFilter.searchProperty} not like concat('%', ${r"#"}{orFilter.value},'%')
+				</when>
+				<!-- is null is not null -->
+				<when test='orFilter.operator.info == "空" or  orFilter.operator.info == "非空"'>
+					${r"$"}{orFilter.searchProperty} ${r"$"}{orFilter.operator.symbol}
+				</when>
+				<!-- in not in -->
+				<when test='orFilter.operator.info == "包含" or orFilter.operator.info == "不包含"'>
+					${r"$"}{orFilter.searchProperty} ${r"$"}{orFilter.operator.symbol}
+					<foreach collection="orFilter.value" item="value" open="(" separator="," close=")">
+						${r"#"}{value}
+					</foreach>
+				</when>
+				<when test='orFilter.operator.info =="自定义默认的"'>
+					${r"$"}{orFilter.value}
+				</when>
+				<otherwise>
+					 ${r"$"}{orFilter.searchProperty} ${r"$"}{orFilter.operator.symbol} ${r"#"}{orFilter.value}
+				</otherwise>
+			</choose>
+		</foreach>
+	</sql>
+	
+	<sql id="and_filters">
+		<foreach collection="searchFilter.andFilters" item="andFilter" open="(" separator="and" close=")">
+			<choose>
+				<when test='andFilter.operator.info == "前缀模糊匹配"'>
+					${r"$"}{andFilter.searchProperty} like concat('%', ${r"#"}{andFilter.value})
+				</when>
+				<when test='andFilter.operator.info == "前缀模糊不匹配"'>
+					${r"$"}{andFilter.searchProperty} not like concat('%', ${r"#"}{andFilter.value})
+				</when>
+				<when test='andFilter.operator.info == "后缀模糊匹配"'>
+					${r"$"}{andFilter.searchProperty} like concat(${r"#"}{andFilter.value}, '%')
+				</when>
+				<when test='andFilter.operator.info == "后缀模糊不匹配"'>
+					${r"$"}{andFilter.searchProperty} not like concat(${r"#"}{andFilter.value}, '%')
+				</when>
+				<when test='andFilter.operator.info == "模糊匹配"'>
+					${r"$"}{andFilter.searchProperty} like concat('%', ${r"#"}{andFilter.value}, '%')
+				</when>
+				<when test='andFilter.operator.info == "不匹配"'>
+					${r"$"}{andFilter.searchProperty} not like concat('%', ${r"#"}{andFilter.value},'%')
+				</when>
+				<!-- is null is not null -->
+				<when test='andFilter.operator.info == "空" or  andFilter.operator.info == "非空"'>
+					${r"$"}{andFilter.searchProperty} ${r"$"}{andFilter.operator.symbol}
+				</when>
+				<!-- in not in -->
+				<when test='andFilter.operator.info == "包含" or andFilter.operator.info == "不包含"'>
+					${r"$"}{andFilter.searchProperty} ${r"$"}{andFilter.operator.symbol}
+					<foreach collection="andFilter.value" item="value" open="(" separator="," close=")">
+						${r"#"}{value}
+					</foreach>
+				</when>
+				<when test='andFilter.operator.info =="自定义默认的"'>
+					${r"$"}{andFilter.value}
+				</when>
+				<otherwise>
+					 ${r"$"}{andFilter.searchProperty} ${r"$"}{andFilter.operator.symbol} ${r"#"}{andFilter.value}
+				</otherwise>
+			</choose>
+		</foreach>
+	</sql>
+	
+	<sql id="common_filter">
+		<choose>
+			<when test='searchFilter.operator.info == "前缀模糊匹配"'>
+				 ${r"$"}{searchFilter.searchProperty} like concat('%', ${r"#"}{searchFilter.value})
+			</when>
+			<when test='searchFilter.operator.info == "前缀模糊不匹配"'>
+				 ${r"$"}{searchFilter.searchProperty} not like concat('%',${r"#"}{searchFilter.value})
+			</when>
+			<when test='searchFilter.operator.info == "后缀模糊匹配"'>
+				 ${r"$"}{searchFilter.searchProperty} like concat(${r"#"}{searchFilter.value}, '%')
+			</when>
+			<when test='searchFilter.operator.info == "后缀模糊不匹配"'>
+				 ${r"$"}{searchFilter.searchProperty} not like concat(${r"#"}{searchFilter.value}, '%')
+			</when>
+			<when test='searchFilter.operator.info == "模糊匹配"'>
+				 ${r"$"}{searchFilter.searchProperty} like concat('%', ${r"#"}{searchFilter.value}, '%')
+			</when>
+			<when test='searchFilter.operator.info == "不匹配"'>
+				${r"$"}{searchFilter.searchProperty} not like concat('%',${r"#"}{searchFilter.value},'%')
+			</when>
+			<!-- is null is not null -->
+			<when test='searchFilter.operator.info == "空" or  searchFilter.operator.info == "非空"'>
+			    ${r"$"}{searchFilter.searchProperty} ${r"$"}{searchFilter.operator.symbol}
+			</when>
+			<!-- in not in -->
+			<when test='searchFilter.operator.info == "包含" or searchFilter.operator.info == "不包含"'>
+				 ${r"$"}{searchFilter.searchProperty} ${r"$"}{searchFilter.operator.symbol}
+				<foreach collection="searchFilter.value" item="value" open="(" separator="," close=")">
+					${r"#"}{value}
+				</foreach>
+			</when>
+			<when test='searchFilter.operator.info =="自定义默认的"'>
+					${r"$"}{searchFilter.value}
+			</when>
+			<otherwise>
+				 ${r"$"}{searchFilter.searchProperty} ${r"$"}{searchFilter.operator.symbol} ${r"#"}{searchFilter.value}
+			</otherwise>
+		</choose>
+	</sql>
+	
+	<!-- 分页、排序 -->
+	<select id="findAll" parameterType="com.anjz.base.entity.search.Searchable" resultMap="BaseResultMap">
+		select
+		<include refid="Base_Column_List" />
+		from ${table.sqlName}
+		<where>
+			<if test="searchFilters != null and searchFilters.size > 0">
+				<foreach collection="searchFilters" item="searchFilter" separator="and ">
+					<if test="searchFilter instanceof com.anjz.base.entity.search.filter.OrCondition and searchFilter.orFilters.size > 0">
+						<include refid="or_filters" />
+					</if>
+	
+					<if test="searchFilter instanceof com.anjz.base.entity.search.filter.AndCondition  and searchFilter.andFilters.size > 0">
+						<include refid="and_filters" />
+					</if>
+		
+					<if test="searchFilter instanceof com.anjz.base.entity.search.filter.Condition">
+						<include refid="common_filter" />
+					</if>	
+				</foreach>
+			</if>
+		</where>
+	
+		<if test="sort!=null">
+			<if test="sort.orders != null and sort.orders.size > 0">
+				order by
+				<foreach collection="sort.orders" item="order" separator=",">
+					 ${r"$"}{order.property}  ${r"$"}{order.direction}
+				</foreach>
+			</if>
+		</if>
+	
+		<if test="page!=null">
+			limit ${r"#"}{page.offset},${r"#"}{page.size}
+		</if>
+	</select>
+	
+	<select id="count" parameterType="com.anjz.base.entity.search.Searchable" resultType="long">
+		select count(*)
+		from ${table.sqlName}
+		<where>
+			<if test="searchFilters != null and searchFilters.size > 0">
+				<foreach collection="searchFilters" item="searchFilter" separator="and ">
+					<if test="searchFilter instanceof com.anjz.base.entity.search.filter.OrCondition and searchFilter.orFilters.size > 0">
+						<include refid="or_filters" />
+					</if>
+	
+					<if test="searchFilter instanceof com.anjz.base.entity.search.filter.AndCondition  and searchFilter.andFilters.size > 0">
+						<include refid="and_filters" />
+					</if>
+		
+					<if test="searchFilter instanceof com.anjz.base.entity.search.filter.Condition">
+						<include refid="common_filter" />
+					</if>	
+				</foreach>
+			</if>
+		</where>
+	</select>
+</mapper>
